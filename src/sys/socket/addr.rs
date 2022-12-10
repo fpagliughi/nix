@@ -1790,6 +1790,23 @@ pub mod can {
             Self(addr)
         }
 
+        /// Create a new CAN socket address for ISO-TP.
+        pub fn new_tp(ifindex: c_uint, rx_id: libc::canid_t, tx_id: libc::canid_t) -> Self {
+            let mut tp_addr = Self::new(ifindex);
+            tp_addr.0.can_addr.tp.rx_id = rx_id;
+            tp_addr.0.can_addr.tp.tx_id = tx_id;
+            tp_addr
+        }
+
+        /// Create a new CAN socket address for J1939
+        pub fn new_j1939(ifindex: c_uint, name: u64, pgn: u32, addr: u8) -> Self {
+            let mut j1939_addr = Self::new(ifindex);
+            j1939_addr.0.can_addr.j1939.name = name;
+            j1939_addr.0.can_addr.j1939.pgn = pgn;
+            j1939_addr.0.can_addr.j1939.addr = addr;
+            j1939_addr
+        }
+
         /// Return the socket's CAN interface index.
         pub const fn ifindex(&self) -> c_uint {
             self.0.can_ifindex as c_uint
@@ -1831,7 +1848,19 @@ pub mod can {
 
     impl PartialEq for CanAddr {
         fn eq(&self, other: &CanAddr) -> bool {
-            self.ifindex() == other.ifindex()
+            let self_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.as_ptr() as *const _ as *const u8,
+                    Self::size() as usize
+                )
+            };
+            let other_slice = unsafe {
+                std::slice::from_raw_parts(
+                    other.as_ptr() as *const _ as *const u8,
+                    Self::size() as usize
+                )
+            };
+            self_slice == other_slice
         }
     }
 
@@ -1839,7 +1868,13 @@ pub mod can {
 
     impl Hash for CanAddr {
         fn hash<H: Hasher>(&self, s: &mut H) {
-            self.ifindex().hash(s)
+            let self_slice = unsafe {
+                std::slice::from_raw_parts(
+                    self.as_ptr() as *const _ as *const u8,
+                    Self::size() as usize
+                )
+            };
+            self_slice.hash(s)
         }
     }
 }
