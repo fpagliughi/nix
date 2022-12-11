@@ -1829,9 +1829,22 @@ pub mod can {
         }
     }
 
+    impl fmt::Debug for CanAddr {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fmt::Display::fmt(self, f)
+        }
+    }
+
     impl PartialEq for CanAddr {
         fn eq(&self, other: &CanAddr) -> bool {
-            self.ifindex() == other.ifindex()
+            let (inner, other) = (self.0, other.0);
+            (
+                inner.can_family,
+                inner.can_ifindex,
+            ) == (
+                other.can_family,
+                other.can_ifindex,
+            )
         }
     }
 
@@ -1839,7 +1852,260 @@ pub mod can {
 
     impl Hash for CanAddr {
         fn hash<H: Hasher>(&self, s: &mut H) {
-            self.ifindex().hash(s)
+            let inner = self.0;
+            (
+                inner.can_family,
+                inner.can_ifindex,
+            )
+                .hash(s)
+        }
+    }
+
+    /// Address for the Linux SocketCAN implementation for the Controller Area Network
+    /// automotive bus protocol using the ISO-TP protocol.
+    ///
+    /// # References
+    ///
+    /// [SocketCAN](https://docs.kernel.org/networking/can.html)
+    #[derive(Copy, Clone)]
+    #[allow(missing_debug_implementations)]
+    #[repr(transparent)]
+    pub struct CanAddrTp(pub(in super::super) sockaddr_can);
+
+    impl CanAddrTp {
+        /// Create a new CAN socket address for ISO-TP.
+        pub fn new(ifindex: c_uint, rx_id: libc::canid_t, tx_id: libc::canid_t) -> Self {
+            let mut addr: sockaddr_can = unsafe { mem::zeroed() };
+            addr.can_family = AddressFamily::Can as sa_family_t;
+            addr.can_ifindex = ifindex as c_int;
+            addr.can_addr.tp.rx_id = rx_id;
+            addr.can_addr.tp.tx_id = tx_id;
+            Self(addr)
+        }
+
+        /// Return the socket's CAN interface index.
+        pub const fn ifindex(&self) -> c_uint {
+            self.0.can_ifindex as c_uint
+        }
+
+        /// Return the receiver ID
+        pub const fn rx_id(&self) -> libc::canid_t {
+            unsafe { self.0.can_addr.tp.rx_id }
+        }
+
+        /// Return the transmitter ID
+        pub const fn tx_id(&self) -> libc::canid_t {
+            unsafe { self.0.can_addr.tp.tx_id }
+        }
+    }
+
+    impl private::SockaddrLikePriv for CanAddrTp {}
+    impl SockaddrLike for CanAddrTp {
+        unsafe fn from_raw(
+            addr: *const libc::sockaddr,
+            len: Option<libc::socklen_t>,
+        ) -> Option<Self>
+        where
+            Self: Sized,
+        {
+            if let Some(l) = len {
+                if l != mem::size_of::<libc::sockaddr_can>() as libc::socklen_t {
+                    return None;
+                }
+            }
+            if (*addr).sa_family as i32 != libc::AF_CAN {
+                return None;
+            }
+            Some(Self(ptr::read_unaligned(addr as *const _)))
+        }
+    }
+
+    impl AsRef<libc::sockaddr_can> for CanAddrTp {
+        fn as_ref(&self) -> &libc::sockaddr_can {
+            &self.0
+        }
+    }
+
+    impl fmt::Display for CanAddrTp {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(
+                f,
+                "ifindex: {} rx_id: {} tx_id{}",
+                self.ifindex(),
+                self.rx_id(),
+                self.tx_id(),
+            )
+        }
+    }
+
+    impl fmt::Debug for CanAddrTp {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fmt::Display::fmt(self, f)
+        }
+    }
+
+    impl PartialEq for CanAddrTp {
+        fn eq(&self, other: &CanAddrTp) -> bool {
+            let (inner, other) = (self.0, other.0);
+            unsafe {
+                (
+                    inner.can_family,
+                    inner.can_ifindex,
+                    inner.can_addr.tp.rx_id,
+                    inner.can_addr.tp.tx_id,
+                ) == (
+                    other.can_family,
+                    other.can_ifindex,
+                    other.can_addr.tp.rx_id,
+                    other.can_addr.tp.tx_id,
+                )
+            }
+        }
+    }
+
+    impl Eq for CanAddrTp {}
+
+    impl Hash for CanAddrTp {
+        fn hash<H: Hasher>(&self, s: &mut H) {
+            let inner  = self.0;
+            unsafe {
+                (
+                    inner.can_family,
+                    inner.can_ifindex,
+                    inner.can_addr.tp.rx_id,
+                    inner.can_addr.tp.tx_id,
+                )
+                    .hash(s)
+            }
+        }
+    }
+
+    /// Address for the Linux SocketCAN implementation for the Controller Area Network
+    /// automotive bus protocol using the J1939 protocol.
+    ///
+    /// # References
+    ///
+    /// [SocketCAN](https://docs.kernel.org/networking/can.html)
+    #[derive(Copy, Clone)]
+    #[allow(missing_debug_implementations)]
+    #[repr(transparent)]
+    pub struct CanAddrJ1939(pub(in super::super) sockaddr_can);
+
+    impl CanAddrJ1939 {
+        /// Create a new CAN socket address for ISO-TP.
+        pub fn new_(ifindex: c_uint, name: u64, pgn: u32, addr: u8) -> Self {
+            let mut j1939_addr: sockaddr_can = unsafe { mem::zeroed() };
+            j1939_addr.can_family = AddressFamily::Can as sa_family_t;
+            j1939_addr.can_ifindex = ifindex as c_int;
+            j1939_addr.can_addr.j1939.name = name;
+            j1939_addr.can_addr.j1939.pgn = pgn;
+            j1939_addr.can_addr.j1939.addr = addr;
+            Self(j1939_addr)
+        }
+
+        /// Return the socket's CAN interface index.
+        pub const fn ifindex(&self) -> c_uint {
+            self.0.can_ifindex as c_uint
+        }
+
+        /// Return the
+        pub const fn name(&self) -> u64 {
+            unsafe { self.0.can_addr.j1939.name }
+        }
+
+        /// Return the
+        pub const fn pgn(&self) -> u32 {
+            unsafe { self.0.can_addr.j1939.pgn }
+        }
+
+        /// Return the
+        pub const fn addr(&self) -> u8 {
+            unsafe { self.0.can_addr.j1939.addr }
+        }
+    }
+
+    impl private::SockaddrLikePriv for CanAddrJ1939 {}
+    impl SockaddrLike for CanAddrJ1939 {
+        unsafe fn from_raw(
+            addr: *const libc::sockaddr,
+            len: Option<libc::socklen_t>,
+        ) -> Option<Self>
+        where
+            Self: Sized,
+        {
+            if let Some(l) = len {
+                if l != mem::size_of::<libc::sockaddr_can>() as libc::socklen_t {
+                    return None;
+                }
+            }
+            if (*addr).sa_family as i32 != libc::AF_CAN {
+                return None;
+            }
+            Some(Self(ptr::read_unaligned(addr as *const _)))
+        }
+    }
+
+    impl AsRef<libc::sockaddr_can> for CanAddrJ1939 {
+        fn as_ref(&self) -> &libc::sockaddr_can {
+            &self.0
+        }
+    }
+
+    impl fmt::Display for CanAddrJ1939 {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(
+                f,
+                "ifindex: {} name: {} pgn: {} addr: {}",
+                self.ifindex(),
+                self.name(),
+                self.pgn(),
+                self.addr()
+            )
+        }
+    }
+
+    impl fmt::Debug for CanAddrJ1939 {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fmt::Display::fmt(self, f)
+        }
+    }
+
+    impl PartialEq for CanAddrJ1939 {
+        fn eq(&self, other: &CanAddrJ1939) -> bool {
+            let (inner, other) = (self.0, other.0);
+            unsafe {
+                (
+                    inner.can_family,
+                    inner.can_ifindex,
+                    inner.can_addr.j1939.name,
+                    inner.can_addr.j1939.pgn,
+                    inner.can_addr.j1939.addr
+                ) == (
+                    other.can_family,
+                    other.can_ifindex,
+                    other.can_addr.j1939.name,
+                    other.can_addr.j1939.pgn,
+                    other.can_addr.j1939.addr
+                )
+            }
+        }
+    }
+
+    impl Eq for CanAddrJ1939 {}
+
+    impl Hash for CanAddrJ1939 {
+        fn hash<H: Hasher>(&self, s: &mut H) {
+            let inner  = self.0;
+            unsafe {
+                (
+                    inner.can_family,
+                    inner.can_ifindex,
+                    inner.can_addr.j1939.name,
+                    inner.can_addr.j1939.pgn,
+                    inner.can_addr.j1939.addr
+                )
+                    .hash(s)
+            }
         }
     }
 }

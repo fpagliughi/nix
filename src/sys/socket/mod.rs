@@ -56,6 +56,10 @@ pub use crate::sys::socket::addr::alg::AlgAddr;
 pub use crate::sys::socket::addr::netlink::NetlinkAddr;
 #[cfg(target_os = "linux")]
 pub use crate::sys::socket::addr::can::CanAddr;
+#[cfg(target_os = "linux")]
+pub use crate::sys::socket::addr::can::CanAddrTp;
+#[cfg(target_os = "linux")]
+pub use crate::sys::socket::addr::can::CanAddrJ1939;
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 #[cfg(feature = "ioctl")]
 pub use crate::sys::socket::addr::sys_control::SysControlAddr;
